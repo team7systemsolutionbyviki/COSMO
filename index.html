@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <link rel="manifest" href="/COSMO/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0f172a">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -487,25 +487,47 @@
 
             #sidebar,
             .no-print,
-            .modal,
-            #login-view,
+            .modal-header,
+            .modal-footer,
             .mobile-menu-btn,
             header,
-            #app-root {
+            #app-root,
+            #login-view,
+            #modal-product,
+            #modal-category,
+            #modal-checkout,
+            #modal-customer {
                 display: none !important;
             }
 
             body {
                 background: white;
                 color: black;
+                height: auto;
+                overflow: visible;
             }
 
-            #receipt-print-area {
+            .modal {
+                position: static;
+                background: none;
                 display: block !important;
-                position: absolute;
-                top: 0;
-                left: 0;
+                inset: auto;
+                height: auto;
+            }
+
+            .modal-content {
+                box-shadow: none;
+                border: none;
                 width: 100%;
+                max-width: none;
+                padding: 0;
+            }
+
+            #print-preview-content {
+                display: block !important;
+                border: none !important;
+                width: 100%;
+                padding: 0;
             }
         }
 
@@ -937,6 +959,25 @@
             <div class="modal-footer justify-center">
                 <button class="btn btn-success w-full py-2 text-xl" onclick="App.pos.confirmCheckout()">Complete
                     Sale</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-print" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Receipt Preview</h3><span class="cursor-pointer"
+                    onclick="App.router.hideModal('modal-print')">X</span>
+            </div>
+            <div class="modal-body">
+                <div id="print-preview-content"
+                    style="border: 1px dashed black; padding: 10px; font-family: 'Courier New', monospace; font-size: 12px;">
+                    <!-- Receipt injected here -->
+                </div>
+            </div>
+            <div class="modal-footer justify-center gap-2">
+                <button class="btn btn-danger" onclick="App.router.hideModal('modal-print')">Close</button>
+                <button class="btn btn-primary" onclick="App.pos.triggerPrint()">🖨️ PRINT NOW</button>
             </div>
         </div>
     </div>
@@ -1690,12 +1731,8 @@
                 },
                 printReceipt: (inv) => {
                     const config = Store.get('shop_config', { name: 'Greenlake Naturales' });
-                    // Debug: Check if logo data exists
-                    if (!config.logo) console.warn("No logo found in config");
-                    if (!config.show_logo) console.warn("Show logo is disabled");
 
-                    const area = document.getElementById('receipt-print-area');
-                    area.innerHTML = `
+                    const html = `
                         <div class="receipt-header" style="overflow:hidden; margin-bottom:10px;">
                             ${(config.logo && (config.show_logo === true || config.show_logo === 'true' || config.show_logo === 'on')) ? `
                                 <div style="float:left; width:30%;">
@@ -1737,7 +1774,13 @@
                         <div class="receipt-divider"></div>
                         <div style="text-align:center">${config.footer || 'Thanks!'}</div>
                     `;
+
+                    document.getElementById('print-preview-content').innerHTML = html;
+                    App.router.showModal('modal-print');
+                },
+                triggerPrint: () => {
                     window.print();
+                    // Optional: auto-close after print dialog logic (hard to detect, so we leave it open)
                 }
             },
 
@@ -2166,8 +2209,8 @@
         window.onload = App.init;
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/COSMO/service-worker.js', {
-                scope: '/COSMO/'
+            navigator.serviceWorker.register('./service-worker.js', {
+                scope: './'
             });
         }
 
