@@ -755,6 +755,7 @@
                 <div class="flex gap-2 mb-4 flex-wrap">
                     <button class="btn btn-primary" onclick="App.reports.render('daily')">Daily Sales</button>
                     <button class="btn" onclick="App.reports.render('monthly')">Monthly Sales</button>
+                    <button class="btn" onclick="App.reports.render('transaction')">All Transactions</button>
                     <button class="btn" onclick="App.reports.render('item')">Item Sales</button>
                     <button class="btn" onclick="App.reports.render('customer')">Customer Sales</button>
                     <button class="btn" onclick="App.reports.render('stock')">Stock Value</button>
@@ -1401,7 +1402,12 @@
                 },
                 save: () => {
                     const custs = Store.get('customers', []);
-                    const id = document.getElementById('cust-id').value || Utils.id();
+                    let id = document.getElementById('cust-id').value;
+                    if (!id) {
+                        // Generate sequential ID
+                        const maxId = custs.reduce((max, c) => Math.max(max, parseInt(c.id) || 0), 0);
+                        id = (maxId + 1).toString();
+                    }
 
                     const name = document.getElementById('cust-name').value;
                     if (!name) { alert("Name is required"); return; }
@@ -1901,6 +1907,13 @@
                     const content = document.getElementById('report-content');
 
                     let html = '';
+                    // Helper for Action Buttons
+                    const getActions = (tid, title) => `
+                        <div class="flex gap-2 my-2 justify-end">
+                            <button class="btn btn-primary" onclick="App.reports.export('${tid}', '${title}')">Export CSV</button>
+                            <button class="btn" onclick="App.reports.printTable('${tid}', '${title}')">Print Report</button>
+                        </div>
+                    `;
 
                     if (type === 'daily') {
                         const today = Utils.dateStr();
@@ -1910,7 +1923,8 @@
                                     <div class="card p-2 flex-1 text-center bg-light">Bills: <b>${daily.length}</b></div>
                                     <div class="card p-2 flex-1 text-center bg-light">Revenue: <b>${Utils.formatCurrency(daily.reduce((s, i) => s + i.total, 0))}</b></div>
                                 </div>
-                                <table>
+                                ${getActions('rep-daily-table', 'Daily_Report_' + today)}
+                                <table id="rep-daily-table">
                                     <thead><tr><th>Time</th><th>Invoice</th><th>Customer</th><th>Mode</th><th>Total</th><th>Action</th></tr></thead>
                                     <tbody>
                                         ${daily.map(i => {
@@ -1939,7 +1953,8 @@
                                     <div class="card p-2 flex-1 text-center bg-light">Bills: <b>${monthly.length}</b></div>
                                     <div class="card p-2 flex-1 text-center bg-light">Revenue: <b>${Utils.formatCurrency(monthly.reduce((s, i) => s + i.total, 0))}</b></div>
                                 </div>
-                                <table>
+                                ${getActions('rep-month-table', 'Monthly_Report_' + m)}
+                                <table id="rep-month-table">
                                     <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Total</th><th>Action</th></tr></thead>
                                     <tbody>
                                         ${monthly.map(i => {
@@ -1948,6 +1963,36 @@
                                 <td>${i.date.substring(0, 10)}</td>
                                 <td>${i.invoice_no}</td>
                                 <td>${cName}</td>
+                                <td>${Utils.formatCurrency(i.total)}</td>
+                                <td><button class="btn btn-sm" onclick="App.reports.print('${i.id}')">🖨️</button></td>
+                            </tr>`;
+                        }).join('')}
+                                    </tbody>
+                                </table>`;
+                    }
+                    else if (type === 'transaction') {
+                        html = `<h3>All Transactions (Total Details)</h3>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <label>Search:</label>
+                                    <input type="text" onkeyup="App.reports.filterTable(this.value, 'rep-trans-table')" class="input" placeholder="Search Invoice, Customer Name/ID..." style="width:auto">
+                                </div>
+                                <div class="flex gap-4 my-2">
+                                    <div class="card p-2 flex-1 text-center bg-light">Total Bills: <b>${invs.length}</b></div>
+                                    <div class="card p-2 flex-1 text-center bg-light">Total Revenue: <b>${Utils.formatCurrency(invs.reduce((s, i) => s + i.total, 0))}</b></div>
+                                </div>
+                                ${getActions('rep-trans-table', 'All_Transactions')}
+                                <table id="rep-trans-table">
+                                    <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Items</th><th>Total</th><th>Action</th></tr></thead>
+                                    <tbody>
+                                        ${invs.slice().reverse().map(i => {
+                            const c = custs.find(c => c.id === i.customer_id);
+                            const cDisplay = c ? `${c.name} (${c.id})` : 'Guest';
+                            const itemsSummary = i.items.map(x => `${x.name} x${x.qty}`).join(', ');
+                            return `<tr>
+                                <td>${i.date.substring(0, 10)}</td>
+                                <td>${i.invoice_no}</td>
+                                <td>${cDisplay}</td>
+                                <td><div class="text-truncate" style="max-width:200px" title="${itemsSummary}">${itemsSummary}</div></td>
                                 <td>${Utils.formatCurrency(i.total)}</td>
                                 <td><button class="btn btn-sm" onclick="App.reports.print('${i.id}')">🖨️</button></td>
                             </tr>`;
@@ -1966,7 +2011,8 @@
                         });
                         const sorted = Object.values(itemSales).sort((a, b) => b.total - a.total);
                         html = `<h3>Item Wise Sales</h3>
-                                <table>
+                                ${getActions('rep-item-table', 'Item_Sales_Report')}
+                                <table id="rep-item-table">
                                     <thead><tr><th>Product</th><th>Qty Sold</th><th>Total Revenue</th></tr></thead>
                                     <tbody>
                                         ${sorted.map(i => `<tr><td>${i.name}</td><td>${i.qty}</td><td>${Utils.formatCurrency(i.total)}</td></tr>`).join('')}
@@ -1987,6 +2033,7 @@
                                     <label>Search:</label>
                                     <input type="text" onkeyup="App.reports.filterTable(this.value, 'rep-cust-table')" class="input" placeholder="Search customer..." style="width:auto">
                                 </div>
+                                ${getActions('rep-cust-table', 'Customer_Sales_Report')}
                                 <table id="rep-cust-table">
                                     <thead><tr><th>Customer</th><th>Bills</th><th>Total Spent</th></tr></thead>
                                     <tbody>
@@ -2002,7 +2049,8 @@
                                     <div class="card p-2 flex-1 text-center">Total Cost Value: <b>${Utils.formatCurrency(totalVal)}</b></div>
                                     <div class="card p-2 flex-1 text-center">Total Sales Value: <b>${Utils.formatCurrency(totalSell)}</b></div>
                                 </div>
-                                <table>
+                                ${getActions('rep-stock-table', 'Stock_Report')}
+                                <table id="rep-stock-table">
                                     <thead><tr><th>Product</th><th>Stock</th><th>Cost</th><th>Value (Cost)</th></tr></thead>
                                     <tbody>
                                         ${prods.map(p => `<tr><td>${p.name}</td><td>${p.stock}</td><td>${Utils.formatCurrency(p.cost)}</td><td>${Utils.formatCurrency(p.stock * p.cost)}</td></tr>`).join('')}
@@ -2012,7 +2060,8 @@
                     else if (type === 'lowstock') {
                         const low = prods.filter(p => p.stock < 5);
                         html = `<h3>Low Stock Report (< 5)</h3>
-                                <table>
+                                ${getActions('rep-low-table', 'Low_Stock_Report')}
+                                <table id="rep-low-table">
                                     <thead><tr><th>Product</th><th>Current Stock</th><th>Alert Level</th></tr></thead>
                                     <tbody>
                                         ${low.map(p => `<tr><td class="text-danger font-bold">${p.name}</td><td>${p.stock}</td><td>5</td></tr>`).join('')}
@@ -2059,7 +2108,6 @@
                     content.innerHTML = html;
                 },
                 filterTable: (idOrName, tableId) => {
-                    // Default to 'rep-cust-table' if no id provided, for backward compatibility if needed, though we only use it there.
                     const tid = tableId || 'rep-cust-table';
                     const search = idOrName.toLowerCase();
                     const rows = document.querySelectorAll('#' + tid + ' tbody tr');
@@ -2071,6 +2119,45 @@
                 print: (id) => {
                     const inv = Store.get('invoices', []).find(i => i.id === id);
                     if (inv) App.pos.printReceipt(inv);
+                },
+                export: (tableId, filename) => {
+                    const table = document.getElementById(tableId);
+                    if (!table) return;
+                    let csv = [];
+                    // Get Headers
+                    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText);
+                    csv.push(headers.join(','));
+                    // Get Rows
+                    const rows = Array.from(table.querySelectorAll('tbody tr'));
+                    rows.forEach(row => {
+                        if (row.style.display === 'none') return; // Skip filtered
+                        const cols = Array.from(row.querySelectorAll('td')).map(td => {
+                            let text = td.innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+                            if (text.includes(',')) text = `"${text}"`;
+                            return text;
+                        });
+                        csv.push(cols.join(','));
+                    });
+                    // Download
+                    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename + '.csv';
+                    a.click();
+                },
+                printTable: (tableId, title) => {
+                    const table = document.getElementById(tableId);
+                    if (!table) return;
+                    const win = window.open('', '', 'height=700,width=900');
+                    win.document.write('<html><head><title>' + title + '</title>');
+                    win.document.write('<style>body{font-family:sans-serif;} table {width: 100%; border-collapse: collapse;} th, td {border: 1px solid black; padding: 8px; text-align: left;} .btn {display:none;} h1{text-align:center;} </style>');
+                    win.document.write('</head><body>');
+                    win.document.write('<h1>' + title + '</h1>');
+                    win.document.write(table.outerHTML);
+                    win.document.write('<\/body><\/html>');
+                    win.document.close();
+                    win.print();
                 }
             }
         };
@@ -2078,9 +2165,10 @@
         // Start
         window.onload = App.init;
 
-       if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/COSMO/service-worker.js');
-}
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/COSMO/service-worker.js');
+        }
+
 
     </script>
 
@@ -2088,4 +2176,3 @@
 
 
 </html>
-
