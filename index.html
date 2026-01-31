@@ -7,6 +7,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greenlake Naturals - POS System</title>
+    <script src="./jspdf.min.js"></script>
     <style>
         :root {
             /* Light Theme */
@@ -1730,6 +1731,9 @@
                     App.pos.clearCart();
                 },
                 printReceipt: (inv) => {
+                    // Store for PDF generation
+                    App.pos.currentPrintInvoice = inv;
+
                     const config = Store.get('shop_config', { name: 'Greenlake Naturales' });
 
                     const html = `
@@ -1779,28 +1783,93 @@
                     App.router.showModal('modal-print');
                 },
                 triggerPrint: () => {
-                    const content = document.getElementById('print-preview-content').innerHTML;
-                    const frame = document.getElementById('print-frame');
-                    const doc = frame.contentWindow.document;
+                    const inv = App.pos.currentPrintInvoice;
+                    if (!inv) return alert("No invoice data found!");
 
-                    doc.open();
-                    doc.write('<html><head><title>Print Receipt</title>');
-                    doc.write('<style>');
-                    doc.write('body { font-family: sans-serif; margin: 0; padding: 10px; }');
-                    doc.write('.receipt-header { overflow: hidden; margin-bottom: 10px; }');
-                    doc.write('.receipt-line { display: flex; justify-content: space-between; margin-bottom: 2px; }');
-                    doc.write('.receipt-divider { border-bottom: 1px dashed #000; margin: 5px 0; }');
-                    doc.write('.text-center { text-align: center; }');
-                    doc.write('</style>');
-                    doc.write('</head><body>');
-                    doc.write(content);
-                    doc.write('</body></html>');
-                    doc.close();
+                    const config = Store.get('shop_config', { name: 'Greenlake Naturales' });
+                    const { jsPDF } = window.jspdf;
 
-                    setTimeout(() => {
-                        frame.contentWindow.focus();
-                        frame.contentWindow.print();
-                    }, 500);
+                    // A4 width ~210mm. We use 80mm wide virtual paper or just standard A4.
+                    // Let's use standard A4 and draw in a centered column.
+                    const doc = new jsPDF();
+
+                    let y = 10;
+                    const centerX = 105;
+                    const leftX = 20;
+                    const rightX = 190;
+
+                    // -- Header --
+                    doc.setFontSize(16);
+                    doc.text(config.name, centerX, y, { align: 'center' });
+                    y += 7;
+
+                    doc.setFontSize(10);
+                    doc.text(config.address || '', centerX, y, { align: 'center' });
+                    y += 5;
+                    doc.text("Phone: " + (config.phone || ''), centerX, y, { align: 'center' });
+                    y += 10;
+
+                    doc.text(`Invoice: ${inv.invoice_no}`, centerX, y, { align: 'center' });
+                    y += 5;
+                    doc.text(inv.date.replace('T', ' ').substring(0, 16), centerX, y, { align: 'center' });
+                    y += 5;
+
+                    doc.line(leftX, y, rightX, y); // Divider
+                    y += 5;
+
+                    // -- Items Header --
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'bold');
+                    doc.text("Item", leftX, y);
+                    doc.text("Qty x Price", rightX, y, { align: 'right' });
+                    doc.setFont(undefined, 'normal');
+                    y += 5;
+
+                    // -- Items Loop --
+                    inv.items.forEach((item, idx) => {
+                        const line = `${item.name}`;
+                        const price = `${item.qty} x ${item.price}`;
+
+                        // Check page break
+                        if (y > 280) { doc.addPage(); y = 10; }
+
+                        doc.text(line, leftX, y);
+                        doc.text(price, rightX, y, { align: 'right' });
+                        y += 5;
+                    });
+
+                    y += 2;
+                    doc.line(leftX, y, rightX, y); // Divider
+                    y += 7;
+
+                    // -- Totals --
+                    doc.text("Total:", leftX, y);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(Utils.formatCurrency(inv.total), rightX, y, { align: 'right' });
+                    doc.setFont(undefined, 'normal');
+                    y += 5;
+
+                    if (inv.discount > 0) {
+                        doc.text("Discount:", leftX, y);
+                        doc.text("- " + Utils.formatCurrency(inv.discount), rightX, y, { align: 'right' });
+                        y += 5;
+                    }
+                    if (config.show_gst !== false && inv.tax > 0) {
+                        doc.text("Tax:", leftX, y);
+                        doc.text(Utils.formatCurrency(inv.tax), rightX, y, { align: 'right' });
+                        y += 5;
+                    }
+
+                    y += 5;
+                    doc.text("Mode: " + inv.payment_mode, leftX, y);
+                    y += 10;
+
+                    // -- Footer --
+                    doc.setFontSize(9);
+                    doc.text(config.footer || 'Thank You!', centerX, y, { align: 'center' });
+
+                    // Save
+                    doc.save(`Invoice_${inv.invoice_no}.pdf`);
                 }
             },
 
