@@ -2165,9 +2165,14 @@
         // Start
         window.onload = App.init;
 
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/COSMO/service-worker.js');
         }
+  <script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/COSMO/service-worker.js', {
+    scope: '/COSMO/'
+  });
+}
+</script>
 
 
     </script>
@@ -2176,3 +2181,4 @@
 
 
 </html>
+
