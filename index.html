@@ -1779,8 +1779,28 @@
                     App.router.showModal('modal-print');
                 },
                 triggerPrint: () => {
-                    window.print();
-                    // Optional: auto-close after print dialog logic (hard to detect, so we leave it open)
+                    const content = document.getElementById('print-preview-content').innerHTML;
+                    const frame = document.getElementById('print-frame');
+                    const doc = frame.contentWindow.document;
+
+                    doc.open();
+                    doc.write('<html><head><title>Print Receipt</title>');
+                    doc.write('<style>');
+                    doc.write('body { font-family: sans-serif; margin: 0; padding: 10px; }');
+                    doc.write('.receipt-header { overflow: hidden; margin-bottom: 10px; }');
+                    doc.write('.receipt-line { display: flex; justify-content: space-between; margin-bottom: 2px; }');
+                    doc.write('.receipt-divider { border-bottom: 1px dashed #000; margin: 5px 0; }');
+                    doc.write('.text-center { text-align: center; }');
+                    doc.write('</style>');
+                    doc.write('</head><body>');
+                    doc.write(content);
+                    doc.write('</body></html>');
+                    doc.close();
+
+                    setTimeout(() => {
+                        frame.contentWindow.focus();
+                        frame.contentWindow.print();
+                    }, 500);
                 }
             },
 
@@ -2206,7 +2226,16 @@
         };
 
         // Start
-        window.onload = App.init;
+        window.onload = () => {
+            // Create Print Iframe dynamically if not exists
+            if (!document.getElementById('print-frame')) {
+                const iframe = document.createElement('iframe');
+                iframe.id = 'print-frame';
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+            }
+            App.init();
+        };
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js', {
