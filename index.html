@@ -2,12 +2,9 @@
 <html lang="en">
 
 <head>
-    <link rel="manifest" href="./manifest.json">
-    <meta name="theme-color" content="#0f172a">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greenlake Naturals - POS System</title>
-    <script src="./jspdf.min.js"></script>
     <style>
         :root {
             /* Light Theme */
@@ -488,47 +485,25 @@
 
             #sidebar,
             .no-print,
-            .modal-header,
-            .modal-footer,
+            .modal,
+            #login-view,
             .mobile-menu-btn,
             header,
-            #app-root,
-            #login-view,
-            #modal-product,
-            #modal-category,
-            #modal-checkout,
-            #modal-customer {
+            #app-root {
                 display: none !important;
             }
 
             body {
                 background: white;
                 color: black;
-                height: auto;
-                overflow: visible;
             }
 
-            .modal {
-                position: static;
-                background: none;
+            #receipt-print-area {
                 display: block !important;
-                inset: auto;
-                height: auto;
-            }
-
-            .modal-content {
-                box-shadow: none;
-                border: none;
+                position: absolute;
+                top: 0;
+                left: 0;
                 width: 100%;
-                max-width: none;
-                padding: 0;
-            }
-
-            #print-preview-content {
-                display: block !important;
-                border: none !important;
-                width: 100%;
-                padding: 0;
             }
         }
 
@@ -565,7 +540,7 @@
             <div class="text-center" style="margin-bottom: 2rem;">
                 <h1 class="text-2xl font-bold text-primary">Greenlake Naturals</h1>
                 <p class="text-muted">Shop Billing System</p>
-                <div id="login-msg" class="text-muted text-xs"></div>
+                <div id="login-msg" class="text-muted text-xs">Default PIN: 1234</div>
             </div>
             <form id="login-form" class="flex flex-col gap-4">
                 <div>
@@ -778,7 +753,6 @@
                 <div class="flex gap-2 mb-4 flex-wrap">
                     <button class="btn btn-primary" onclick="App.reports.render('daily')">Daily Sales</button>
                     <button class="btn" onclick="App.reports.render('monthly')">Monthly Sales</button>
-                    <button class="btn" onclick="App.reports.render('transaction')">All Transactions</button>
                     <button class="btn" onclick="App.reports.render('item')">Item Sales</button>
                     <button class="btn" onclick="App.reports.render('customer')">Customer Sales</button>
                     <button class="btn" onclick="App.reports.render('stock')">Stock Value</button>
@@ -815,6 +789,7 @@
                     <input id="set-shop-name" class="input" placeholder="Shop Name">
                     <input id="set-shop-addr" class="input" placeholder="Address">
                     <input id="set-shop-phone" class="input" placeholder="Phone">
+                    <input id="set-shop-gstin" class="input" placeholder="GSTIN (Optional)">
                     <input id="set-gst-default" class="input" type="number" placeholder="Default GST %">
                     <input id="set-footer" class="input" placeholder="Receipt Footer Message">
                     <button class="btn btn-primary" onclick="App.settings.save()">Save Settings</button>
@@ -920,10 +895,11 @@
 
                 <!-- Order Type Selection -->
                 <div class="flex justify-center gap-2 mb-2">
-                    <button id="btn-order-takein" class="btn btn-primary" onclick="App.pos.setOrderType('Take In')">🍽️
-                        Take In</button>
-                    <button id="btn-order-delivery" class="btn" onclick="App.pos.setOrderType('Delivery')">🛵
-                        Delivery</button>
+                    <button id="btn-order-takein" class="btn btn-primary"
+                        onclick="App.pos.setOrderType('Self Pickup')">🍽️
+                        Self Pickup</button>
+                    <button id="btn-order-delivery" class="btn" onclick="App.pos.setOrderType('Courier')">🛵
+                        Courier</button>
                 </div>
 
                 <!-- QR Display -->
@@ -960,25 +936,6 @@
             <div class="modal-footer justify-center">
                 <button class="btn btn-success w-full py-2 text-xl" onclick="App.pos.confirmCheckout()">Complete
                     Sale</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-print" class="modal">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <h3>Receipt Preview</h3><span class="cursor-pointer"
-                    onclick="App.router.hideModal('modal-print')">X</span>
-            </div>
-            <div class="modal-body">
-                <div id="print-preview-content"
-                    style="border: 1px dashed black; padding: 10px; font-family: 'Courier New', monospace; font-size: 12px;">
-                    <!-- Receipt injected here -->
-                </div>
-            </div>
-            <div class="modal-footer justify-center gap-2">
-                <button class="btn btn-danger" onclick="App.router.hideModal('modal-print')">Close</button>
-                <button class="btn btn-primary" onclick="App.pos.triggerPrint()">🖨️ PRINT NOW</button>
             </div>
         </div>
     </div>
@@ -1032,19 +989,11 @@
                     users.push({ id: 'viki', name: 'VIKI', role: 'admin', pin: '1101', is_super: true });
                     modified = true;
                 }
-                // Ensure Admin
-                const admin = users.find(u => u.id === 'admin');
-                if (admin) {
-                    if (admin.pin !== '4321') { admin.pin = '4321'; modified = true; }
-                } else {
-                    users.push({ id: 'admin', name: 'Administrator', role: 'admin', pin: '4321' });
+                if (!users.find(u => u.id === 'admin')) {
+                    users.push({ id: 'admin', name: 'Administrator', role: 'admin', pin: '1234' });
                     modified = true;
                 }
-                // Ensure Staff
-                const staff = users.find(u => u.id === 'staff1');
-                if (staff) {
-                    if (staff.pin !== '0000') { staff.pin = '0000'; modified = true; }
-                } else {
+                if (!users.find(u => u.id === 'staff1')) {
                     users.push({ id: 'staff1', name: 'Staff Member', role: 'staff', pin: '0000' });
                     modified = true;
                 }
@@ -1052,7 +1001,7 @@
 
                 // Initialize Defaults if missing
                 if (Store.get('shop_config', null) === null) {
-                    Store.set('shop_config', { name: 'Greenlake Naturales', address: 'City Center', phone: '9876543210', gst_default: 18, footer: 'Thank you for visiting!' });
+                    Store.set('shop_config', { name: 'Greenlake Naturals', address: 'City Center', phone: '9876543210', gst_default: 18, footer: 'Thank you for visiting!' });
                 }
                 if (Store.get('categories', []).length === 0) {
                     Store.set('categories', [{ id: 'c1', name: 'Lipstick', color: '#ffcccb' }, { id: 'c2', name: 'Skincare', color: '#d1e7dd' }]);
@@ -1444,12 +1393,7 @@
                 },
                 save: () => {
                     const custs = Store.get('customers', []);
-                    let id = document.getElementById('cust-id').value;
-                    if (!id) {
-                        // Generate sequential ID
-                        const maxId = custs.reduce((max, c) => Math.max(max, parseInt(c.id) || 0), 0);
-                        id = (maxId + 1).toString();
-                    }
+                    const id = document.getElementById('cust-id').value || Utils.id();
 
                     const name = document.getElementById('cust-name').value;
                     if (!name) { alert("Name is required"); return; }
@@ -1498,7 +1442,7 @@
             pos: {
                 cart: [],
                 filterCategory: '',
-                orderType: 'Take In',
+                orderType: 'Self Pickup',
 
                 renderProducts: () => {
                     App.pos.filterAndRender();
@@ -1632,7 +1576,7 @@
                     document.getElementById('pay-discount-type').value = 'amount';
 
                     // Reset Order Type
-                    App.pos.setOrderType('Take In');
+                    App.pos.setOrderType('Self Pickup');
 
                     App.router.showModal('modal-checkout');
                 },
@@ -1641,7 +1585,7 @@
                     const btnIn = document.getElementById('btn-order-takein');
                     const btnDel = document.getElementById('btn-order-delivery');
 
-                    if (type === 'Take In') {
+                    if (type === 'Self Pickup') {
                         btnIn.classList.add('btn-primary');
                         btnDel.classList.remove('btn-primary');
                     } else {
@@ -1731,12 +1675,16 @@
                     App.pos.clearCart();
                 },
                 printReceipt: (inv) => {
-                    // Store for PDF generation
-                    App.pos.currentPrintInvoice = inv;
+                    const config = Store.get('shop_config', { name: 'Greenlake Naturals' });
+                    const custs = Store.get('customers', []);
+                    const cName = custs.find(c => c.id === inv.customer_id)?.name || 'Guest';
 
-                    const config = Store.get('shop_config', { name: 'Greenlake Naturales' });
+                    // Debug: Check if logo data exists
+                    if (!config.logo) console.warn("No logo found in config");
+                    if (!config.show_logo) console.warn("Show logo is disabled");
 
-                    const html = `
+                    const area = document.getElementById('receipt-print-area');
+                    area.innerHTML = `
                         <div class="receipt-header" style="overflow:hidden; margin-bottom:10px;">
                             ${(config.logo && (config.show_logo === true || config.show_logo === 'true' || config.show_logo === 'on')) ? `
                                 <div style="float:left; width:30%;">
@@ -1747,11 +1695,13 @@
                                 <h3 style="margin:0">${config.name}</h3>
                                 <p style="margin:0; font-size:0.8em">${config.address}</p>
                                 <p style="margin:0; font-size:0.8em">${config.phone}</p>
+                                ${config.gstin ? `<p style="margin:0; font-size:0.8em">GSTIN: ${config.gstin}</p>` : ''}
                             </div>
                             <div style="clear:both;"></div>
                         </div>
                         <div style="text-align:center; margin-bottom:10px; border-bottom:1px dashed #000; padding-bottom:5px">
                             <p style="margin:0">Invoice: ${inv.invoice_no}</p>
+                            <p style="margin:0">Customer: ${cName}</p>
                             <p style="margin:0">${inv.date.replace('T', ' ').substring(0, 16)}</p>
                         </div>
                         <div class="receipt-divider"></div>
@@ -1775,101 +1725,11 @@
                             <span>Total</span> <span>${Utils.formatCurrency(inv.total)}</span>
                         </div>
                         <div class="receipt-line"><span>Mode</span> <span>${inv.payment_mode}</span></div>
+                        <div class="receipt-line"><span>Type</span> <span>${inv.order_type || 'Take In'}</span></div>
                         <div class="receipt-divider"></div>
                         <div style="text-align:center">${config.footer || 'Thanks!'}</div>
                     `;
-
-                    document.getElementById('print-preview-content').innerHTML = html;
-                    App.router.showModal('modal-print');
-                },
-                triggerPrint: () => {
-                    const inv = App.pos.currentPrintInvoice;
-                    if (!inv) return alert("No invoice data found!");
-
-                    const config = Store.get('shop_config', { name: 'Greenlake Naturales' });
-                    const { jsPDF } = window.jspdf;
-
-                    // A4 width ~210mm. We use 80mm wide virtual paper or just standard A4.
-                    // Let's use standard A4 and draw in a centered column.
-                    const doc = new jsPDF();
-
-                    let y = 10;
-                    const centerX = 105;
-                    const leftX = 20;
-                    const rightX = 190;
-
-                    // -- Header --
-                    doc.setFontSize(16);
-                    doc.text(config.name, centerX, y, { align: 'center' });
-                    y += 7;
-
-                    doc.setFontSize(10);
-                    doc.text(config.address || '', centerX, y, { align: 'center' });
-                    y += 5;
-                    doc.text("Phone: " + (config.phone || ''), centerX, y, { align: 'center' });
-                    y += 10;
-
-                    doc.text(`Invoice: ${inv.invoice_no}`, centerX, y, { align: 'center' });
-                    y += 5;
-                    doc.text(inv.date.replace('T', ' ').substring(0, 16), centerX, y, { align: 'center' });
-                    y += 5;
-
-                    doc.line(leftX, y, rightX, y); // Divider
-                    y += 5;
-
-                    // -- Items Header --
-                    doc.setFontSize(10);
-                    doc.setFont(undefined, 'bold');
-                    doc.text("Item", leftX, y);
-                    doc.text("Qty x Price", rightX, y, { align: 'right' });
-                    doc.setFont(undefined, 'normal');
-                    y += 5;
-
-                    // -- Items Loop --
-                    inv.items.forEach((item, idx) => {
-                        const line = `${item.name}`;
-                        const price = `${item.qty} x ${item.price}`;
-
-                        // Check page break
-                        if (y > 280) { doc.addPage(); y = 10; }
-
-                        doc.text(line, leftX, y);
-                        doc.text(price, rightX, y, { align: 'right' });
-                        y += 5;
-                    });
-
-                    y += 2;
-                    doc.line(leftX, y, rightX, y); // Divider
-                    y += 7;
-
-                    // -- Totals --
-                    doc.text("Total:", leftX, y);
-                    doc.setFont(undefined, 'bold');
-                    doc.text(Utils.formatCurrency(inv.total), rightX, y, { align: 'right' });
-                    doc.setFont(undefined, 'normal');
-                    y += 5;
-
-                    if (inv.discount > 0) {
-                        doc.text("Discount:", leftX, y);
-                        doc.text("- " + Utils.formatCurrency(inv.discount), rightX, y, { align: 'right' });
-                        y += 5;
-                    }
-                    if (config.show_gst !== false && inv.tax > 0) {
-                        doc.text("Tax:", leftX, y);
-                        doc.text(Utils.formatCurrency(inv.tax), rightX, y, { align: 'right' });
-                        y += 5;
-                    }
-
-                    y += 5;
-                    doc.text("Mode: " + inv.payment_mode, leftX, y);
-                    y += 10;
-
-                    // -- Footer --
-                    doc.setFontSize(9);
-                    doc.text(config.footer || 'Thank You!', centerX, y, { align: 'center' });
-
-                    // Save
-                    doc.save(`Invoice_${inv.invoice_no}.pdf`);
+                    window.print();
                 }
             },
 
@@ -1879,6 +1739,7 @@
                     document.getElementById('set-shop-name').value = c.name || '';
                     document.getElementById('set-shop-addr').value = c.address || '';
                     document.getElementById('set-shop-phone').value = c.phone || '';
+                    document.getElementById('set-shop-gstin').value = c.gstin || '';
                     document.getElementById('set-gst-default').value = c.gst_default || '';
                     document.getElementById('set-footer').value = c.footer || '';
                     document.getElementById('set-show-logo').checked = c.show_logo || false;
@@ -1917,6 +1778,7 @@
                         name: document.getElementById('set-shop-name').value,
                         address: document.getElementById('set-shop-addr').value,
                         phone: document.getElementById('set-shop-phone').value,
+                        gstin: document.getElementById('set-shop-gstin').value,
                         gst_default: parseFloat(document.getElementById('set-gst-default').value),
                         footer: document.getElementById('set-footer').value,
                         logo: logo,
@@ -2039,13 +1901,6 @@
                     const content = document.getElementById('report-content');
 
                     let html = '';
-                    // Helper for Action Buttons
-                    const getActions = (tid, title) => `
-                        <div class="flex gap-2 my-2 justify-end">
-                            <button class="btn btn-primary" onclick="App.reports.export('${tid}', '${title}')">Export CSV</button>
-                            <button class="btn" onclick="App.reports.printTable('${tid}', '${title}')">Print Report</button>
-                        </div>
-                    `;
 
                     if (type === 'daily') {
                         const today = Utils.dateStr();
@@ -2055,8 +1910,7 @@
                                     <div class="card p-2 flex-1 text-center bg-light">Bills: <b>${daily.length}</b></div>
                                     <div class="card p-2 flex-1 text-center bg-light">Revenue: <b>${Utils.formatCurrency(daily.reduce((s, i) => s + i.total, 0))}</b></div>
                                 </div>
-                                ${getActions('rep-daily-table', 'Daily_Report_' + today)}
-                                <table id="rep-daily-table">
+                                <table>
                                     <thead><tr><th>Time</th><th>Invoice</th><th>Customer</th><th>Mode</th><th>Total</th><th>Action</th></tr></thead>
                                     <tbody>
                                         ${daily.map(i => {
@@ -2067,7 +1921,10 @@
                                 <td>${cName}</td>
                                 <td>${i.payment_mode}</td>
                                 <td>${Utils.formatCurrency(i.total)}</td>
-                                <td><button class="btn btn-sm" onclick="App.reports.print('${i.id}')">🖨️</button></td>
+                                <td>
+                                    <button class="btn btn-sm" onclick="App.reports.print('${i.id}')" title="Print">🖨️</button>
+                                    <button class="btn btn-sm text-primary" onclick="App.reports.edit('${i.id}')" title="Edit/Void">✏️</button>
+                                </td>
                             </tr>`;
                         }).join('')}
                                     </tbody>
@@ -2085,8 +1942,7 @@
                                     <div class="card p-2 flex-1 text-center bg-light">Bills: <b>${monthly.length}</b></div>
                                     <div class="card p-2 flex-1 text-center bg-light">Revenue: <b>${Utils.formatCurrency(monthly.reduce((s, i) => s + i.total, 0))}</b></div>
                                 </div>
-                                ${getActions('rep-month-table', 'Monthly_Report_' + m)}
-                                <table id="rep-month-table">
+                                <table>
                                     <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Total</th><th>Action</th></tr></thead>
                                     <tbody>
                                         ${monthly.map(i => {
@@ -2096,37 +1952,10 @@
                                 <td>${i.invoice_no}</td>
                                 <td>${cName}</td>
                                 <td>${Utils.formatCurrency(i.total)}</td>
-                                <td><button class="btn btn-sm" onclick="App.reports.print('${i.id}')">🖨️</button></td>
-                            </tr>`;
-                        }).join('')}
-                                    </tbody>
-                                </table>`;
-                    }
-                    else if (type === 'transaction') {
-                        html = `<h3>All Transactions (Total Details)</h3>
-                                <div class="flex items-center gap-2 mb-2">
-                                    <label>Search:</label>
-                                    <input type="text" onkeyup="App.reports.filterTable(this.value, 'rep-trans-table')" class="input" placeholder="Search Invoice, Customer Name/ID..." style="width:auto">
-                                </div>
-                                <div class="flex gap-4 my-2">
-                                    <div class="card p-2 flex-1 text-center bg-light">Total Bills: <b>${invs.length}</b></div>
-                                    <div class="card p-2 flex-1 text-center bg-light">Total Revenue: <b>${Utils.formatCurrency(invs.reduce((s, i) => s + i.total, 0))}</b></div>
-                                </div>
-                                ${getActions('rep-trans-table', 'All_Transactions')}
-                                <table id="rep-trans-table">
-                                    <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Items</th><th>Total</th><th>Action</th></tr></thead>
-                                    <tbody>
-                                        ${invs.slice().reverse().map(i => {
-                            const c = custs.find(c => c.id === i.customer_id);
-                            const cDisplay = c ? `${c.name} (${c.id})` : 'Guest';
-                            const itemsSummary = i.items.map(x => `${x.name} x${x.qty}`).join(', ');
-                            return `<tr>
-                                <td>${i.date.substring(0, 10)}</td>
-                                <td>${i.invoice_no}</td>
-                                <td>${cDisplay}</td>
-                                <td><div class="text-truncate" style="max-width:200px" title="${itemsSummary}">${itemsSummary}</div></td>
-                                <td>${Utils.formatCurrency(i.total)}</td>
-                                <td><button class="btn btn-sm" onclick="App.reports.print('${i.id}')">🖨️</button></td>
+                                <td>
+                                    <button class="btn btn-sm" onclick="App.reports.print('${i.id}')" title="Print">🖨️</button>
+                                    <button class="btn btn-sm text-primary" onclick="App.reports.edit('${i.id}')" title="Edit/Void">✏️</button>
+                                </td>
                             </tr>`;
                         }).join('')}
                                     </tbody>
@@ -2143,8 +1972,7 @@
                         });
                         const sorted = Object.values(itemSales).sort((a, b) => b.total - a.total);
                         html = `<h3>Item Wise Sales</h3>
-                                ${getActions('rep-item-table', 'Item_Sales_Report')}
-                                <table id="rep-item-table">
+                                <table>
                                     <thead><tr><th>Product</th><th>Qty Sold</th><th>Total Revenue</th></tr></thead>
                                     <tbody>
                                         ${sorted.map(i => `<tr><td>${i.name}</td><td>${i.qty}</td><td>${Utils.formatCurrency(i.total)}</td></tr>`).join('')}
@@ -2165,7 +1993,6 @@
                                     <label>Search:</label>
                                     <input type="text" onkeyup="App.reports.filterTable(this.value, 'rep-cust-table')" class="input" placeholder="Search customer..." style="width:auto">
                                 </div>
-                                ${getActions('rep-cust-table', 'Customer_Sales_Report')}
                                 <table id="rep-cust-table">
                                     <thead><tr><th>Customer</th><th>Bills</th><th>Total Spent</th></tr></thead>
                                     <tbody>
@@ -2181,8 +2008,7 @@
                                     <div class="card p-2 flex-1 text-center">Total Cost Value: <b>${Utils.formatCurrency(totalVal)}</b></div>
                                     <div class="card p-2 flex-1 text-center">Total Sales Value: <b>${Utils.formatCurrency(totalSell)}</b></div>
                                 </div>
-                                ${getActions('rep-stock-table', 'Stock_Report')}
-                                <table id="rep-stock-table">
+                                <table>
                                     <thead><tr><th>Product</th><th>Stock</th><th>Cost</th><th>Value (Cost)</th></tr></thead>
                                     <tbody>
                                         ${prods.map(p => `<tr><td>${p.name}</td><td>${p.stock}</td><td>${Utils.formatCurrency(p.cost)}</td><td>${Utils.formatCurrency(p.stock * p.cost)}</td></tr>`).join('')}
@@ -2192,8 +2018,7 @@
                     else if (type === 'lowstock') {
                         const low = prods.filter(p => p.stock < 5);
                         html = `<h3>Low Stock Report (< 5)</h3>
-                                ${getActions('rep-low-table', 'Low_Stock_Report')}
-                                <table id="rep-low-table">
+                                <table>
                                     <thead><tr><th>Product</th><th>Current Stock</th><th>Alert Level</th></tr></thead>
                                     <tbody>
                                         ${low.map(p => `<tr><td class="text-danger font-bold">${p.name}</td><td>${p.stock}</td><td>5</td></tr>`).join('')}
@@ -2240,6 +2065,7 @@
                     content.innerHTML = html;
                 },
                 filterTable: (idOrName, tableId) => {
+                    // Default to 'rep-cust-table' if no id provided, for backward compatibility if needed, though we only use it there.
                     const tid = tableId || 'rep-cust-table';
                     const search = idOrName.toLowerCase();
                     const rows = document.querySelectorAll('#' + tid + ' tbody tr');
@@ -2252,70 +2078,47 @@
                     const inv = Store.get('invoices', []).find(i => i.id === id);
                     if (inv) App.pos.printReceipt(inv);
                 },
-                export: (tableId, filename) => {
-                    const table = document.getElementById(tableId);
-                    if (!table) return;
-                    let csv = [];
-                    // Get Headers
-                    const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText);
-                    csv.push(headers.join(','));
-                    // Get Rows
-                    const rows = Array.from(table.querySelectorAll('tbody tr'));
-                    rows.forEach(row => {
-                        if (row.style.display === 'none') return; // Skip filtered
-                        const cols = Array.from(row.querySelectorAll('td')).map(td => {
-                            let text = td.innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
-                            if (text.includes(',')) text = `"${text}"`;
-                            return text;
-                        });
-                        csv.push(cols.join(','));
+                edit: (id) => {
+                    if (!confirm("Edit this invoice? The current invoice will be deleted, stock will be restored, and items will be moved to the cart for editing.")) return;
+
+                    // 1. Get Invoice & Verify
+                    const invs = Store.get('invoices', []);
+                    const invIdx = invs.findIndex(i => i.id === id);
+                    if (invIdx === -1) return;
+                    const inv = invs[invIdx];
+
+                    // 2. Restore Stock
+                    const prods = Store.get('products', []);
+                    inv.items.forEach(item => {
+                        const p = prods.find(x => x.id === item.id);
+                        if (p) p.stock += item.qty;
                     });
-                    // Download
-                    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename + '.csv';
-                    a.click();
-                },
-                printTable: (tableId, title) => {
-                    const table = document.getElementById(tableId);
-                    if (!table) return;
-                    const win = window.open('', '', 'height=700,width=900');
-                    win.document.write('<html><head><title>' + title + '</title>');
-                    win.document.write('<style>body{font-family:sans-serif;} table {width: 100%; border-collapse: collapse;} th, td {border: 1px solid black; padding: 8px; text-align: left;} .btn {display:none;} h1{text-align:center;} </style>');
-                    win.document.write('</head><body>');
-                    win.document.write('<h1>' + title + '</h1>');
-                    win.document.write(table.outerHTML);
-                    win.document.write('<\/body><\/html>');
-                    win.document.close();
-                    win.print();
+                    Store.set('products', prods);
+
+                    // 3. Remove Invoice
+                    invs.splice(invIdx, 1);
+                    Store.set('invoices', invs);
+
+                    // 4. Load Cart
+                    App.pos.cart = inv.items;
+
+                    // Handle Customer
+                    if (inv.customer_id) {
+                        const cSelect = document.getElementById('cart-customer');
+                        if (cSelect) cSelect.value = inv.customer_id;
+                    }
+
+                    // Refresh State & Navigate
+                    App.pos.renderCart();
+                    App.router.navigate('pos');
+                    alert("Invoice recalled to cart. Make changes and checkout again.");
                 }
             }
         };
 
         // Start
-        window.onload = () => {
-            // Create Print Iframe dynamically if not exists
-            if (!document.getElementById('print-frame')) {
-                const iframe = document.createElement('iframe');
-                iframe.id = 'print-frame';
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-            }
-            App.init();
-        };
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./service-worker.js', {
-                scope: './'
-            });
-        }
-
-
+        window.onload = App.init;
     </script>
-
 </body>
-
 
 </html>

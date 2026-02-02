@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <div id="result">Running...</div>
+    <script>
+        // 1. MOCK ENVIRONMENT
+        const App = {
+            pos: { cart: [], renderCart: () => { } },
+            router: { navigate: () => { } }
+        };
+
+        // Initial DB State
+        // Scenario: Sold 2 items. Original Stock was 10. Current Stock is 8.
+        const DB = {
+            products: [{ id: 'p1', name: 'Item A', stock: 8, price: 100 }],
+            invoices: [
+                {
+                    id: 'inv1',
+                    invoice_no: 'INV001',
+                    items: [{ id: 'p1', name: 'Item A', qty: 2, price: 100 }],
+                    total: 200,
+                    customer_id: 'c1'
+                }
+            ],
+            shop_config: {}
+        };
+
+        const Store = {
+            get: (key) => JSON.parse(JSON.stringify(DB[key] || [])), // Return copy to mimic localStorage behavior
+            set: (key, val) => DB[key] = val
+        };
+
+        // 2. LOGIC UNDER TEST (Copied from index.html)
+        const logic = {
+            edit: (id) => {
+                // Mock confirm to always return true
+                // if (!confirm(...)) return; 
+
+                // 1. Get Invoice & Verify
+                const invs = Store.get('invoices', []);
+                const invIdx = invs.findIndex(i => i.id === id);
+                if (invIdx === -1) return "Invoice Not Found";
+                const inv = invs[invIdx];
+
+                // 2. Restore Stock
+                const prods = Store.get('products', []);
+                inv.items.forEach(item => {
+                    const p = prods.find(x => x.id === item.id);
+                    if (p) p.stock += item.qty;
+                });
+                Store.set('products', prods);
+
+                // 3. Remove Invoice
+                invs.splice(invIdx, 1);
+                Store.set('invoices', invs);
+
+                // 4. Load Cart
+                App.pos.cart = inv.items;
+
+                // (Skipping UI updates as they don't affect logic state)
+                return "Success";
+            }
+        };
+
+        // 3. RUN TEST
+        try {
+            const res = logic.edit('inv1');
+
+            // 4. ASSERTIONS
+            if (res !== "Success") throw new Error("Function failed to execute");
+
+            // Check Stock
+            if (DB.products[0].stock !== 10) {
+                throw new Error("Stock Check Failed: Expected 10, got " + DB.products[0].stock);
+            }
+
+            // Check Invoice Deleted
+            if (DB.invoices.length !== 0) {
+                throw new Error("Invoice Check Failed: Invoice list should be empty");
+            }
+
+            // Check Cart
+            if (App.pos.cart.length !== 1 || App.pos.cart[0].qty !== 2) {
+                throw new Error("Cart Check Failed: Cart not populated correctly");
+            }
+
+            document.getElementById('result').innerText = "TEST PASSED";
+            document.body.style.backgroundColor = "lightgreen";
+
+        } catch (e) {
+            document.getElementById('result').innerText = "TEST FAILED: " + e.message;
+            document.body.style.backgroundColor = "salmon";
+        }
+    </script>
+</body>
+
+</html>
